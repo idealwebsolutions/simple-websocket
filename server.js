@@ -3,7 +3,7 @@ module.exports = SocketServer
 var events = require('events')
 var inherits = require('inherits')
 var Socket = require('./')
-var WebSocketServer = require('ws').Server
+var WebSocketServer = require('uws').Server
 
 inherits(SocketServer, events.EventEmitter)
 

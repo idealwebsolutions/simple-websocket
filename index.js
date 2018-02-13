@@ -7,7 +7,7 @@ var debug = require('debug')('simple-websocket')
 var inherits = require('inherits')
 var randombytes = require('randombytes')
 var stream = require('readable-stream')
-var ws = require('ws') // websockets in node - will be empty object in browser
+var ws = require('uws') // websockets in node - will be empty object in browser
 
 var _WebSocket = typeof ws !== 'function' ? WebSocket : ws
 
