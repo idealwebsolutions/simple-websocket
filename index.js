@@ -1,4 +1,4 @@
-/* global WebSocket */
+/* global WebSocket, DOMException */
 
 module.exports = Socket
 
@@ -67,7 +67,7 @@ function Socket (opts) {
       }
     } catch (err) {
       process.nextTick(function () {
-        self._destroy(err)
+        self.destroy(err)
       })
       return
     }
@@ -84,7 +84,7 @@ function Socket (opts) {
     self._onClose()
   }
   self._ws.onerror = function () {
-    self._destroy(new Error('connection error to ' + self.url))
+    self.destroy(new Error('connection error to ' + self.url))
   }
 
   self._onFinishBound = function () {
@@ -103,14 +103,16 @@ Socket.prototype.send = function (chunk) {
   this._ws.send(chunk)
 }
 
-Socket.prototype.destroy = function (onclose) {
-  this._destroy(null, onclose)
+// TODO: Delete this method once readable-stream is updated to contain a default
+// implementation of destroy() that automatically calls _destroy()
+// See: https://github.com/nodejs/readable-stream/issues/283
+Socket.prototype.destroy = function (err) {
+  this._destroy(err, function () {})
 }
 
-Socket.prototype._destroy = function (err, onclose) {
+Socket.prototype._destroy = function (err, cb) {
   var self = this
   if (self.destroyed) return
-  if (onclose) self.once('close', onclose)
 
   self._debug('destroy (error: %s)', err && (err.message || err))
 
@@ -151,8 +153,17 @@ Socket.prototype._destroy = function (err, onclose) {
   }
   self._ws = null
 
-  if (err) self.emit('error', err)
+  if (err) {
+    if (typeof DOMException !== 'undefined' && err instanceof DOMException) {
+      // Convert Edge DOMException object to Error object
+      var code = err.code
+      err = new Error(err.message)
+      err.code = code
+    }
+    self.emit('error', err)
+  }
   self.emit('close')
+  cb()
 }
 
 Socket.prototype._read = function () {}
@@ -164,7 +175,7 @@ Socket.prototype._write = function (chunk, encoding, cb) {
     try {
       this.send(chunk)
     } catch (err) {
-      return this._destroy(err)
+      return this.destroy(err)
     }
     if (typeof WebSocket === 'function' && this._ws.bufferedAmount > MAX_BUFFERED_AMOUNT) {
       this._debug('start backpressure: bufferedAmount %d', this._ws.bufferedAmount)
@@ -196,7 +207,7 @@ Socket.prototype._onFinish = function () {
   // TODO: is there a more reliable way to accomplish this?
   function destroySoon () {
     setTimeout(function () {
-      self._destroy()
+      self.destroy()
     }, 1000)
   }
 }
@@ -217,7 +228,7 @@ Socket.prototype._onOpen = function () {
     try {
       self.send(self._chunk)
     } catch (err) {
-      return self._destroy(err)
+      return self.destroy(err)
     }
     self._chunk = null
     self._debug('sent chunk from "write before connect"')
@@ -254,7 +265,7 @@ Socket.prototype._onInterval = function () {
 Socket.prototype._onClose = function () {
   if (this.destroyed) return
   this._debug('on close')
-  this._destroy()
+  this.destroy()
 }
 
 Socket.prototype._debug = function () {

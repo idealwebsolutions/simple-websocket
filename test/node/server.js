@@ -1,3 +1,5 @@
+// Test the Server class
+
 var Socket = require('../../')
 var Server = require('../../server')
 var test = require('tape')
