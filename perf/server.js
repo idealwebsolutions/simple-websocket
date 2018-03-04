@@ -2,7 +2,7 @@
 
 var prettierBytes = require('prettier-bytes')
 var speedometer = require('speedometer')
-var ws = require('ws')
+var ws = require('uws')
 
 var speed = speedometer()
 

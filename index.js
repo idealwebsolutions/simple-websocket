@@ -7,9 +7,8 @@ var debug = require('debug')('simple-websocket')
 var inherits = require('inherits')
 var randombytes = require('randombytes')
 var stream = require('readable-stream')
-var ws = require('uws') // websockets in node - will be empty object in browser
 
-var _WebSocket = typeof ws !== 'function' ? WebSocket : ws
+var _WebSocket = typeof WebSocket !== 'function' ? require('uws') : WebSocket
 
 var MAX_BUFFERED_AMOUNT = 64 * 1024
 
@@ -60,11 +59,11 @@ function Socket (opts) {
   } else {
     self.url = opts.url
     try {
-      if (typeof ws === 'function') {
-        // `ws` package accepts options
-        self._ws = new _WebSocket(opts.url, opts)
-      } else {
+      if (typeof WebSocket === 'function') {
         self._ws = new _WebSocket(opts.url)
+      } else {
+        // 'uws' package accepts options
+        self._ws = new _WebSocket(opts.url, opts)
       }
     } catch (err) {
       process.nextTick(function () {
@@ -167,12 +166,13 @@ Socket.prototype._write = function (chunk, encoding, cb) {
     } catch (err) {
       return this._destroy(err)
     }
-    if (typeof ws !== 'function' && this._ws.bufferedAmount > MAX_BUFFERED_AMOUNT) {
+    if (typeof WebSocket === 'function' && this._ws.bufferedAmount > MAX_BUFFERED_AMOUNT) {
       this._debug('start backpressure: bufferedAmount %d', this._ws.bufferedAmount)
       this._cb = cb
     } else {
       cb(null)
     }
+
   } else {
     this._debug('write before connect')
     this._chunk = chunk
@@ -227,14 +227,15 @@ Socket.prototype._onOpen = function () {
     cb(null)
   }
 
+  // TODO: not sure if 'uws' has the same problem
   // Backpressure is not implemented in Node.js. The `ws` module has a buggy
   // `bufferedAmount` property. See: https://github.com/websockets/ws/issues/492
-  if (typeof ws !== 'function') {
+  /*if (typeof ws !== 'function') {
     self._interval = setInterval(function () {
       self._onInterval()
     }, 150)
     if (self._interval.unref) self._interval.unref()
-  }
+  }*/
 
   self._debug('connect')
   self.emit('connect')
